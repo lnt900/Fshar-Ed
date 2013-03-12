@@ -4,8 +4,8 @@ Fshar-Ed
 - Auto get download links from Fshare VIP account, simple login,get links,logout. use best for group sharing account
 - Pastebin view : http://pastebin.com/WBREbipC
 
-****************** Changes Log ***********************
-
+Changes Log
+=
 0.3 : Changes
 
   - Now check for size of file when got download link (prevent links to be deleted short after get and not download)
