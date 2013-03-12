@@ -3,6 +3,7 @@ Author : lnt900@gmail.com
 ========
 Auto get download links from Fshare account
 
+
 ****************** Changes Log ***********************
 
 0.3 : Changes
@@ -20,3 +21,9 @@ Auto get download links from Fshare account
   - Disable/Enable buttons when processing
 
 0.1 : Initializing
+  
+  - get links : login -> get all the links -> logout immediately
+  - supported both file or folder link
+  - send to IDM : send links to IDM queue
+  - copy links to clipboard, ready to add to any download mangager or do whatever you like
+  - Todo : links protected by password, monitor clipboard, handle duplicate login session ...
