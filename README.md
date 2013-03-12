@@ -2,6 +2,7 @@ Fshar-Ed
 =
 - Author : lnt900@gmail.com
 - Auto get download links from Fshare VIP account, simple login,get links,logout. use best for group sharing account
+- Writen and Build by AutoIt at http://www.autoitscript.com/site/autoit/
 - Pastebin view : http://pastebin.com/WBREbipC
 
 Changes Log
