@@ -1,13 +1,14 @@
 ﻿#cs
 FsharEd
 ************** Infos *****************
-Version : 0.3 BETA
+Version : 0.4 functioning
 Author : lnt900@gmail.com
 Source and Build : https://github.com/lnt900/Fshar-Ed
 Changelogs : https://github.com/lnt900/Fshar-Ed/commits/master
 *******************************************
 #ce
 #include <GUIListBox.au3>
+ #include <GUIConstantsEx.au3>
 #include <WindowsConstants.au3>
 #include <File.au3>
 #include <Array.au3>
@@ -15,13 +16,16 @@ Changelogs : https://github.com/lnt900/Fshar-Ed/commits/master
 #include <GUIConstants.au3>
 #include <GuiButton.au3>
 
-Global $version = "0.3 BETA"
+Global $version = "0.4 functioning"
 Global $hListBox,$origHWND,$lastCopied='',$WM_CLIPUPDATE=0x031D
-Local $hGUI, $linklist, $dllist, $listviewcontrols, $username, $password, $retry = 0, $loggedin = 0, $cookies[1][2] = [["", ""]], $f = "account.txt"
+Local $hGUI, $linklist, $dllist, $listviewcontrols, $username, $password, $retry = 0, $loggedin = 0, $cookies[1][2] = [["", ""]], $f = "account.txt", $processing = 0
 
 ; GUI
 $hGUI = GUICreate("FsharEd " & $version, 800, 600)
 ;GUISetIcon(@SystemDir & "\mspaint.exe", 0)
+
+; Intercept Windows command messages with out own handler
+GUIRegisterMsg($WM_COMMAND, "_WM_COMMAND")
 
 ;Clipboard monitor
 $origHWND = DLLCall("user32.dll","int","AddClipboardFormatListener","hwnd",$hGUI)
@@ -43,6 +47,8 @@ _GUICtrlListView_AddColumn($iListView, "Download Link", 530)
 _GUICtrlListView_AddColumn($iListView, "Size", 55)
 
 ;buttons
+$btnStop = GUICtrlCreateButton ("DỪNG LẤY LINK !", 520,  40, 250, 40)
+_GUICtrlButton_Show($btnStop, False)
 $btnGetLink = GUICtrlCreateButton ("Lấy Link Download  >>>", 520,  40, 250, 40)
 $btnClearlinks = GUICtrlCreateButton ("Xóa danh sách download", 520,  420, 180, 45)
 _GUICtrlButton_Enable($btnClearlinks, False)
@@ -143,171 +149,187 @@ EndFunc
 
 ;function to parse links input
 Func parseLinks($input, $loggoutthen = 1)
-	;$links = GUICtrlRead($input)
-	$links = StringReplace($input, @CRLF, " ")
-	$links = StringReplace($links, @TAB, " ")
-	$aLink = StringSplit($links, " ")
-	$hasfsharelinks = StringRegExp($links,'http:/(.*?)fshare.vn/(.*?)')
+	If $processing = 0 Then
+		$links = StringReplace($input, @CRLF, " ")
+		$links = StringReplace($links, @TAB, " ")
+		$aLink = StringSplit($links, " ")
+		$hasfsharelinks = StringRegExp($links,'http:/(.*?)fshare.vn/(.*?)')
 
-	If $hasfsharelinks = 1 Then
-		_GUICtrlButton_Enable($btnGetLink, False)
-		If $loggedin = 0 Then
-			;Login to Fshare
-			loginF()
-		EndIf
+		If $hasfsharelinks = 1 Then
+			_GUICtrlButton_Show($btnGetLink, False)
+			_GUICtrlButton_Show($btnStop, True)
+			;_GUICtrlButton_SetText($btnGetLink, "DỪNG LẤY LINK !")
+			$processing = 1
+			If $loggedin = 0 Then
+				;Login to Fshare
+				loginF()
+			EndIf
 
-		If $loggedin = 1 Then
-			For $x=1 To $aLink[0]
-				If $loggedin = 1 Then
-					$retry = 0
-					parseLink($aLink[$x])
-				EndIf
-			Next
-		EndIf
+			If $loggedin = 1 Then
+				For $x=1 To $aLink[0]
+					If $loggedin = 1 And $processing = 1 Then
+						$retry = 0
+						parseLink($aLink[$x])
+					EndIf
+				Next
+			EndIf
 
-		If $loggoutthen = 1 And $loggedin = 1 Then
-			logoutF()
-		EndIf
+			If $loggoutthen = 1 And $loggedin = 1 Then
+				logoutF()
+			EndIf
 
-		If $retry < 4 Then
-			addText("[OK] Đã xử lý xong tất cả các links !",$hListBox)
+			If $retry < 4 And $processing = 1 Then
+				addText("[OK] Đã xử lý xong tất cả các links !",$hListBox)
+			ElseIf $retry < 4 And $processing = 0 Then
+				addText("[Fshare] Đã ngừng lấy link !",$hListBox)
+			Else
+				addText("[Lỗi] trùng phiên đăng nhập quá 4 lần, vui lòng thử lại sau vài phút !",$hListBox)
+				$retry = 0
+			EndIf
+			;_GUICtrlButton_SetText($btnGetLink, "Lấy Link Download  >>>")
+			_GUICtrlButton_Enable($btnStop, True)
+			_GUICtrlButton_Show($btnStop, False)
+			_GUICtrlButton_Show($btnGetLink, True)
+			$processing = 0
 		Else
-			addText("[Lỗi] trùng phiên đăng nhập quá 4 lần, vui lòng thử lại sau vài phút !",$hListBox)
-			$retry = 0
+			addText("[Lỗi] Không có link fshare trong danh sách link !",$hListBox)
 		EndIf
-		_GUICtrlButton_Enable($btnGetLink, True)
-	Else
-		addText("[Lỗi] Không có link fshare trong danh sách link !",$hListBox)
 	EndIf
 EndFunc
 
 ;function to get fshare download link
 Func parseLink($lnk)
-	$validLink = StringRegExp($lnk,'http:/(.*?)fshare.vn/file(.*?)')
-	$isfolder = StringRegExp($lnk,'http:/(.*?)fshare.vn/folder(.*?)')
-	If $validLink = 1 Then
+	If $processing = 1 Then
+		$validLink = StringRegExp($lnk,'http:/(.*?)fshare.vn/file(.*?)')
+		$isfolder = StringRegExp($lnk,'http:/(.*?)fshare.vn/folder(.*?)')
+		If $validLink = 1 Then
 
 
-		If StringInStr($lnk, '|') <> 0 Then
-			;$lnk = StringReplace($lnk, '*', '|')
-			$plink = StringSplit($lnk, '|')
-			$lnk = $plink[1]
-			$dlpw = $plink[2]
-		Else
-			$dlpw = ''
-		EndIf
+			If StringInStr($lnk, '|') <> 0 Then
+				;$lnk = StringReplace($lnk, '*', '|')
+				$plink = StringSplit($lnk, '|')
+				$lnk = $plink[1]
+				$dlpw = $plink[2]
+			Else
+				$dlpw = ''
+			EndIf
 
-		If StringInStr($lnk, '?') <> 0 Then
-			$plink = StringSplit($lnk, '?')
-			$slink = $plink[1]
-			addText("[Fshare] Lấy link cho file " & $slink & " ...",$hListBox)
-			$res = getHTTP($lnk, mkCookies(), $slink, 1, 1)
-		Else
-			$slink = $lnk
-			addText("[Fshare] Lấy link cho file " & $slink & " ...",$hListBox)
-			$res = getHTTP($lnk, mkCookies(), '', 1)
-		EndIf
+			If StringInStr($lnk, '?') <> 0 Then
+				$plink = StringSplit($lnk, '?')
+				$slink = $plink[1]
+				addText("[Fshare] Lấy link cho file " & $slink & " ...",$hListBox)
+				$res = getHTTP($lnk, mkCookies(), $slink, 1, 1)
+			Else
+				$slink = $lnk
+				addText("[Fshare] Lấy link cho file " & $slink & " ...",$hListBox)
+				$res = getHTTP($lnk, mkCookies(), '', 1)
+			EndIf
 
 
-		If (StringInStr($res[2], "logout.php") <> 0) Or ($res[1] = 1) Then
-			$filesize = "unknown"
-			If $res[1] = 1 Then
-				;GUICtrlSetData($LinkInput,GUICtrlRead($LinkInput) & @CRLF & "Có redir đến " & $res[0])
-				$size = InetGetSize($res[0])
-				If $size > 1000000000 Then
-						$filesize = Round($size/(1024^3),2) & " GB"
-					ElseIf $size > 1000000 Then
-						$filesize = Round($size/(1024^2),2) & " MB"
-					ElseIf $size > 1000 Then
-						$filesize = Round($size/(1024),2) & " KB"
-					EndIf
-				$listviewcontrols = arradd($listviewcontrols, GUICtrlCreateListViewItem($slink & "|" & $res[0] & "|" & $filesize, $iListView))
-				$linklist = arradd($linklist, $res[0])
-				$dllist = arradd($dllist, $slink)
-				_GUICtrlButton_Enable($btnClearlinks, True)
-				_GUICtrlButton_Enable($btnCopy, True)
-				_GUICtrlButton_Enable($btnSendToIDM, True)
-				addText("  -> Done.",$hListBox)
-			ElseIf StringInStr($res[2], "vip_package_bt.png") <> 0 AND StringInStr($res[2], "fshare.vn/vip") <> 0 Then
-				$arr = StringRegExp($res[2], '<form action="(.*?)" method="post" name="frm_download">', 3)
-				If UBound($arr) > 0 Then
-					;GUICtrlSetData($LinkInput,GUICtrlRead($LinkInput) & @CRLF & "Lấy được link download " & $arr[0])
-					$size = InetGetSize($arr[0])
+			If (StringInStr($res[2], "logout.php") <> 0) Or ($res[1] = 1) Then
+				$filesize = "unknown"
+				If $res[1] = 1 Then
+					;GUICtrlSetData($LinkInput,GUICtrlRead($LinkInput) & @CRLF & "Có redir đến " & $res[0])
+					$size = InetGetSize($res[0])
 					If $size > 1000000000 Then
-						$filesize = Round($size/(1024^3),2) & " GB"
-					ElseIf $size > 1000000 Then
-						$filesize = Round($size/(1024^2),2) & " MB"
-					ElseIf $size > 1000 Then
-						$filesize = Round($size/(1024),2) & " KB"
-					EndIf
-					$listviewcontrols = arradd($listviewcontrols, GUICtrlCreateListViewItem($slink & "|" & $arr[0] & "|" & $filesize, $iListView))
-					$linklist = arradd($linklist, $arr[0])
+							$filesize = Round($size/(1024^3),2) & " GB"
+						ElseIf $size > 1000000 Then
+							$filesize = Round($size/(1024^2),2) & " MB"
+						ElseIf $size > 1000 Then
+							$filesize = Round($size/(1024),2) & " KB"
+						EndIf
+					$listviewcontrols = arradd($listviewcontrols, GUICtrlCreateListViewItem($slink & "|" & $res[0] & "|" & $filesize, $iListView))
+					$linklist = arradd($linklist, $res[0])
 					$dllist = arradd($dllist, $slink)
 					_GUICtrlButton_Enable($btnClearlinks, True)
 					_GUICtrlButton_Enable($btnCopy, True)
 					_GUICtrlButton_Enable($btnSendToIDM, True)
 					addText("  -> Done.",$hListBox)
-				EndIf
-			ElseIf StringInStr($res[2], "vip_package_bt.png") <> 0 AND StringInStr($res[2], '<input type="text" name="link_file_pwd_dl"/>') <> 0 Then
-				addText("  -> Link Download có mật khẩu ...",$hListBox)
-				If StringInStr($res[2], '<ul class="message-error">') <> 0 Then
-					$announce = 'Mật khẩu không đúng. Nhập lại ?'
-				Else
-					$announce = 'File này yêu cầu nhập mật khẩu để tải.'
-				EndIf
-
-				if $dlpw = '' Then
-					$filename = StringRegExp($res[2], '<p><b>(.*?):</b>(.*?)</p>', 3)
-					$pos = WinGetPos($hGUI)
-					$dlpw = InputBox("Mật khẩu", $slink & @CRLF & '-> ' & $filename[1] & @CRLF & @CRLF & $announce & ' Bỏ trống hoặc Cancel để bỏ qua link này. Nếu không nhập mật khẩu sau 15 giây sẽ tự động bỏ qua', '', '', - 1, 240, $pos[0]+200, $pos[1]+200, 15)
-					If $dlpw = '' Then
-						$err = '[Fshare] Bỏ qua link ' & $slink & ' -> unknown error !'
-						Select
-							Case @error = 0
-								$err = '[Fshare] Bỏ qua link ' & $slink & ' -> bởi người dùng'
-							Case @error = 1
-								$err = '[Fshare] Bỏ qua link ' & $slink & ' -> bởi người dùng'
-							Case @error = 2
-								$err = '[Fshare] Bỏ qua link ' & $slink & ' -> Timeout 15s'
-						EndSelect
+				ElseIf StringInStr($res[2], "vip_package_bt.png") <> 0 AND StringInStr($res[2], "fshare.vn/vip") <> 0 Then
+					$arr = StringRegExp($res[2], '<form action="(.*?)" method="post" name="frm_download">', 3)
+					If UBound($arr) > 0 Then
+						;GUICtrlSetData($LinkInput,GUICtrlRead($LinkInput) & @CRLF & "Lấy được link download " & $arr[0])
+						$size = InetGetSize($arr[0])
+						If $size > 1000000000 Then
+							$filesize = Round($size/(1024^3),2) & " GB"
+						ElseIf $size > 1000000 Then
+							$filesize = Round($size/(1024^2),2) & " MB"
+						ElseIf $size > 1000 Then
+							$filesize = Round($size/(1024),2) & " KB"
+						EndIf
+						$listviewcontrols = arradd($listviewcontrols, GUICtrlCreateListViewItem($slink & "|" & $arr[0] & "|" & $filesize, $iListView))
+						$linklist = arradd($linklist, $arr[0])
+						$dllist = arradd($dllist, $slink)
+						_GUICtrlButton_Enable($btnClearlinks, True)
+						_GUICtrlButton_Enable($btnCopy, True)
+						_GUICtrlButton_Enable($btnSendToIDM, True)
+						addText("  -> Done.",$hListBox)
 					EndIf
-				EndIf
+				ElseIf StringInStr($res[2], "vip_package_bt.png") <> 0 AND StringInStr($res[2], '<input type="text" name="link_file_pwd_dl"/>') <> 0 Then
+					addText("  -> Link Download có mật khẩu ...",$hListBox)
+					If StringInStr($res[2], '<ul class="message-error">') <> 0 Then
+						$announce = 'Mật khẩu không đúng. Nhập lại ?'
+					Else
+						$announce = 'File này yêu cầu nhập mật khẩu để tải.'
+					EndIf
 
-				If $dlpw = '' Then
-					addText($err ,$hListBox)
+					if $dlpw = '' Then
+						$filename = StringRegExp($res[2], '<p><b>(.*?):</b>(.*?)</p>', 3)
+						$pos = WinGetPos($hGUI)
+						$dlpw = InputBox("Mật khẩu", $slink & @CRLF & '-> ' & $filename[1] & @CRLF & @CRLF & $announce & ' Bỏ trống hoặc Cancel để bỏ qua link này. Nếu không nhập mật khẩu sau 15 giây sẽ tự động bỏ qua', '', '', - 1, 240, $pos[0]+200, $pos[1]+200, 15)
+						If $dlpw = '' Then
+							$err = '[Fshare] Bỏ qua link ' & $slink & ' -> unknown error !'
+							Select
+								Case @error = 0
+									$err = '[Fshare] Bỏ qua link ' & $slink & ' -> bởi người dùng'
+								Case @error = 1
+									$err = '[Fshare] Bỏ qua link ' & $slink & ' -> bởi người dùng'
+								Case @error = 2
+									$err = '[Fshare] Bỏ qua link ' & $slink & ' -> Timeout 15s'
+							EndSelect
+						EndIf
+					EndIf
+
+					If $dlpw = '' Then
+						addText($err ,$hListBox)
+					Else
+						$fileid = StringRegExp($res[2], '<input type="hidden" name="file_id" value="(.*?)"/>', 3)
+						$newlnk = $lnk & '?action=download_file&file_id=' & $fileid[0] & '&link_file_pwd_dl=' & URLEncode($dlpw)
+						parseLink($newlnk)
+					EndIf
+				ElseIf StringInStr($res[2], '<ul class="message-error">') <> 0 Then
+					addText("[Fshare][Lỗi] Có thể đang trùng phiên đăng nhập với người khác !",$hListBox)
+					logoutF()
+					addText(" -> Đợi xử lý lại sau 1 phút ...",$hListBox)
+					$retry += 1
+					If $retry < 4 Then
+						Sleep(60000)
+						loginF()
+						parseLink($lnk)
+					EndIf
 				Else
-					$fileid = StringRegExp($res[2], '<input type="hidden" name="file_id" value="(.*?)"/>', 3)
-					$newlnk = $lnk & '?action=download_file&file_id=' & $fileid[0] & '&link_file_pwd_dl=' & URLEncode($dlpw)
-					parseLink($newlnk)
+					addText("[Fshare] Error: No Download Link !",$hListBox)
 				EndIf
-			ElseIf StringInStr($res[2], '<ul class="message-error">') <> 0 Then
-				addText("[Fshare][Lỗi] Có thể đang trùng phiên đăng nhập với người khác !",$hListBox)
-				logoutF()
-				addText(" -> Đợi xử lý lại sau 1 phút ...",$hListBox)
-				$retry += 1
-				If $retry < 4 Then
-					Sleep(60000)
-					loginF()
-					parseLink($lnk)
-				EndIf
+			EndIf
+			;Sleep(200)
+		ElseIf $isfolder = 1 Then
+			addText("[Fshare] Link " & $lnk & " là thư mục !",$hListBox)
+			$res = getHTTP($lnk, mkCookies(), '', 1)
+			If StringInStr($res[2], "fshare.vn/file/") <> 0 Then
+				$arr = StringRegExp($res[2], '<a href="(.*?)" target="_blank"><span class="filename">', 3)
+				addText("[Fshare] Có " & UBound($arr) & " file trong thư mục ...",$hListBox)
+				;parseLinks(_ArrayToString($arr, " "), 0)
+				For $i = 0 To UBound($arr) - 1
+					parseLink($arr[$i])
+				Next
 			Else
-				addText("[Fshare] Error: No Download Link !",$hListBox)
+				addText("[Fshare] Thư mục trống !",$hListBox)
 			EndIf
 		EndIf
-		Sleep(200)
-	ElseIf $isfolder = 1 Then
-		addText("[Fshare] Link " & $lnk & " là thư mục !",$hListBox)
-		$res = getHTTP($lnk, mkCookies(), '', 1)
-		If StringInStr($res[2], "fshare.vn/file/") <> 0 Then
-			$arr = StringRegExp($res[2], '<a href="(.*?)" target="_blank"><span class="filename">', 3)
-			addText("[Fshare] Có " & UBound($arr) & " file trong thư mục ...",$hListBox)
-			;parseLinks(_ArrayToString($arr, " "), 0)
-			For $i = 0 To UBound($arr) - 1
-				parseLink($arr[$i])
-			Next
-		Else
-			addText("[Fshare] Thư mục trống !",$hListBox)
-		EndIf
+	Else
+		logoutF()
+		;_GUICtrlButton_Enable($btnStop, False)
+		;_GUICtrlButton_SetText($btnGetLink, "Đang dừng ...")
 	EndIf
 EndFunc
 
@@ -486,6 +508,15 @@ Func CBmonitor($data)
 		EndIf
 	EndIf
 EndFunc
+
+;WM_COMMAND overwrite
+Func _WM_COMMAND($hWnd, $Msg, $wParam, $lParam)
+	If BitAND($wParam, 0x0000FFFF) =  $btnStop Then
+		$processing = 0
+		_GUICtrlButton_Enable($btnStop, False)
+	EndIf
+     Return $GUI_RUNDEFMSG
+ EndFunc
 
 ; GUI MESSAGE LOOP
 While 1

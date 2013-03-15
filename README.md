@@ -7,6 +7,10 @@
 
 Changes Log
 =
+Just added :
+
+- Thêm chức năng dừng lấy link khi đang xử lý
+
 0.3 : Changes
 
   - Kiểm tra kích thước file khi lấy được link download (ngăn cho link không bị xóa sau 1 khoảng thời gian ngắn nếu không tải ngay sau khi lấy link)
