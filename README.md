@@ -9,6 +9,8 @@ Changes Log
 =
 Just added :
 
+- Clipboard monitor : Sửa lỗi code
+- Clipboard monitor : Chỉ lọc lấy link fshare từ clipboard đưa vào input box thay vì lấy tất cả nội dung clipboard
 - Thêm chức năng dừng lấy link khi đang xử lý
 
 0.3 : Changes

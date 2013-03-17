@@ -29,7 +29,9 @@ GUIRegisterMsg($WM_COMMAND, "_WM_COMMAND")
 
 ;Clipboard monitor
 $origHWND = DLLCall("user32.dll","int","AddClipboardFormatListener","hwnd",$hGUI)
-$origHWND = $origHWND[0]
+If IsArray($origHWND) Then
+	$origHWND = $origHWND[0]
+EndIf
 GUIRegisterMsg($WM_CLIPUPDATE,"OnClipBoardChange")
 Func OnClipBoardChange($hWnd, $Msg, $wParam, $lParam)
     ; do what you need when clipboard changes
@@ -498,7 +500,19 @@ Func CBmonitor($data)
 		$lastCopied=$data
 		$isfsharelink = StringRegExp($data,'http://(.*?)fshare.vn/file(.*?)')
 		$isfsharefolder = StringRegExp($data,'http://(.*?)fshare.vn/folder(.*?)')
+		$data = StringReplace($data, @CRLF, " ")
+		$data = StringReplace($data, @TAB, " ")
+		$datax = StringSplit($data, " ")
 		If $isfsharelink = 1 Or $isfsharefolder = 1 Then
+			dim $tmprt
+			For $i = 0 to $datax[0]
+				$i1 = StringRegExp($datax[$i],'http://(.*?)fshare.vn/file(.*?)')
+				$i2 = StringRegExp($datax[$i],'http://(.*?)fshare.vn/folder(.*?)')
+				If $i1 = 1 Or $i2 = 1 Then
+					$tmprt = arradd($tmprt, $datax[$i])
+				EndIf
+			Next
+			$data = _ArrayToString($tmprt, @CRLF)
 			addText("[Clipboard Monitor] Đã lấy link fshare từ clipboard",$hListBox)
 			$ctb = GUICtrlRead($LinkInput)
 			If StringLen($ctb)>0 Then
