@@ -7,8 +7,9 @@
 
 Changes Log
 =
-Just added :
+0.4.3 :
 
+- IDM : kiểm tra và báo lỗi nếu không có IDM cài trên máy. chuyển link interface từ cố định sang search registry, hỗ trợ nhiều hệ thống hơn.
 - Clipboard monitor : Sửa lỗi code
 - Clipboard monitor : Chỉ lọc lấy link fshare từ clipboard đưa vào input box thay vì lấy tất cả nội dung clipboard
 - Thêm chức năng dừng lấy link khi đang xử lý

@@ -1,7 +1,6 @@
 ﻿#cs
 FsharEd
 ************** Infos *****************
-Version : 0.4 functioning
 Author : lnt900@gmail.com
 Source and Build : https://github.com/lnt900/Fshar-Ed
 Changelogs : https://github.com/lnt900/Fshar-Ed/commits/master
@@ -16,9 +15,9 @@ Changelogs : https://github.com/lnt900/Fshar-Ed/commits/master
 #include <GUIConstants.au3>
 #include <GuiButton.au3>
 
-Global $version = "0.4 functioning"
+Global $version = "0.4.3"
 Global $hListBox,$origHWND,$lastCopied='',$WM_CLIPUPDATE=0x031D
-Local $hGUI, $linklist, $dllist, $listviewcontrols, $username, $password, $retry = 0, $loggedin = 0, $cookies[1][2] = [["", ""]], $f = "account.txt", $processing = 0
+Local $hGUI, $linklist, $dllist, $listviewcontrols, $username, $password, $retry = 0, $loggedin = 0, $cookies[1][2] = [["", ""]], $f = "account.txt", $processing = 0, $idd = 0, $clsid = 0
 
 ; GUI
 $hGUI = GUICreate("FsharEd " & $version, 800, 600)
@@ -483,14 +482,40 @@ EndFunc
 ;function to send download links to IDM
 Func SendToIDM()
 	If UBound($linklist) > 0 Then
-		$clsid = "{AC746233-E9D3-49CD-862F-068F7B7CCCA4}"
-		$idd = "{4BD46AAE-C51F-4BF7-8BC0-2E86E33D1873}"
-		$desc = "SendLinkToIDM hresult(bstr;bstr;bstr;bstr;bstr;bstr;bstr;bstr;long);"
-		$idm = ObjCreateInterface($clsid,$idd,$desc)
-		For $i = 0 to UBound($linklist) - 1
-			$idm.SendLinkToIDM($linklist[$i], $dllist[$i], '', '', '', '','', '', 2)
-		Next
-		addText("[IDM] Đã gửi link download sang IDM",$hListBox)
+		;$clsid = "{AC746233-E9D3-49CD-862F-068F7B7CCCA4}"
+		If $clsid = 0 Then
+			$clsid = RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\Classes\IDMan.CIDMLinkTransmitter\CLSID", "")
+		EndIf
+
+		If $clsid <> "" Then
+			If $idd = 0 Then
+				;$idd = "{4BD46AAE-C51F-4BF7-8BC0-2E86E33D1873}"
+				$i = 0
+				While 1
+					$i+= 1
+					Local $var = RegEnumKey("HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Interface\", $i)
+					$keyname = RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Interface\" & $var, "")
+					If ($var = "") Or ($keyname == "ICIDMLinkTransmitter") Then ExitLoop
+				WEnd
+				If $var = "" Then
+					$idd = 1
+				Else
+					$idd = $var
+				EndIf
+			EndIf
+			If $idd = 1 Then
+				addText("[IDM] Không tìm thấy IDM trong hệ thống",$hListBox)
+			Else
+				$desc = "SendLinkToIDM hresult(bstr;bstr;bstr;bstr;bstr;bstr;bstr;bstr;long);"
+				$idm = ObjCreateInterface($clsid,$idd,$desc)
+				For $i = 0 to UBound($linklist) - 1
+					$idm.SendLinkToIDM($linklist[$i], $dllist[$i], '', '', '', '','', '', 2)
+				Next
+				addText("[IDM] Đã gửi link download sang IDM",$hListBox)
+			EndIf
+		Else
+			addText("[IDM] Không tìm thấy IDM trong hệ thống",$hListBox)
+		EndIf
 	EndIf
 EndFunc
 
@@ -500,10 +525,10 @@ Func CBmonitor($data)
 		$lastCopied=$data
 		$isfsharelink = StringRegExp($data,'http://(.*?)fshare.vn/file(.*?)')
 		$isfsharefolder = StringRegExp($data,'http://(.*?)fshare.vn/folder(.*?)')
-		$data = StringReplace($data, @CRLF, " ")
-		$data = StringReplace($data, @TAB, " ")
-		$datax = StringSplit($data, " ")
 		If $isfsharelink = 1 Or $isfsharefolder = 1 Then
+			$data = StringReplace($data, @CRLF, " ")
+			$data = StringReplace($data, @TAB, " ")
+			$datax = StringSplit($data, " ")
 			dim $tmprt
 			For $i = 0 to $datax[0]
 				$i1 = StringRegExp($datax[$i],'http://(.*?)fshare.vn/file(.*?)')
